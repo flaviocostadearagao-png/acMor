@@ -1,0 +1,102 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and statistics.",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "stats": {
+          "type": "object",
+          "properties": {
+            "totalDistance": { "type": "number" },
+            "totalRides": { "type": "number" },
+            "points": { "type": "number" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "email"]
+    },
+    "Ride": {
+      "title": "Ride",
+      "description": "A group bicycle ride event.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "creatorId": { "type": "string" },
+        "creatorName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "startLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" },
+            "address": { "type": "string" }
+          }
+        },
+        "level": { "type": "string", "enum": ["Iniciante", "Intermediário", "Avançado"] },
+        "distance": { "type": "number" },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            }
+          }
+        },
+        "participantCount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "creatorId", "startTime", "level"]
+    },
+    "Workout": {
+      "title": "Workout",
+      "description": "A recorded cycling session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "distance": { "type": "number" },
+        "duration": { "type": "number" },
+        "avgSpeed": { "type": "number" },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "lat": { "type": "number" },
+              "lng": { "type": "number" },
+              "timestamp": { "type": "number" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "distance", "duration"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "rides/{rideId}": {
+      "schema": "Ride",
+      "description": "Public group rides."
+    },
+    "rides/{rideId}/participants/{userId}": {
+      "schema": "User",
+      "description": "Participants list for a ride."
+    },
+    "workouts/{workoutId}": {
+      "schema": "Workout",
+      "description": "Historical workouts for a user."
+    }
+  }
+}

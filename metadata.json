@@ -1,0 +1,5 @@
+{
+  "name": "PedalMatch",
+  "description": "App de rastreamento e social para ciclistas com modo offline",
+  "requestFramePermissions": ["geolocation"]
+}
