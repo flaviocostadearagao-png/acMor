@@ -3,17 +3,19 @@
 import React, { useEffect, useState } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
-import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { 
   collection, 
+  addDoc, 
   query, 
   orderBy, 
   onSnapshot, 
-  addDoc, 
-  serverTimestamp, 
-  doc, 
-  updateDoc, 
-  increment 
+  serverTimestamp,
+  doc,
+  updateDoc,
+  increment,
+  getDoc,
+  setDoc
 } from 'firebase/firestore';
 import { 
   Search, 
@@ -66,8 +68,6 @@ export default function Feed() {
     const q = query(collection(db, 'rides'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setRides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'rides');
     });
 
     return () => unsubscribe();
@@ -79,13 +79,18 @@ export default function Feed() {
 
     try {
       await addDoc(collection(db, 'rides'), {
-        ...newRide,
+        title: newRide.title,
+        description: newRide.description,
+        level: newRide.level,
         distance: Number(newRide.distance),
+        startTime: newRide.startTime,
+        address: newRide.address,
         creatorId: user.uid,
-        creatorName: user.displayName || 'Membro',
+        creatorName: user.displayName || 'Ciclista',
         participantCount: 1,
-        createdAt: serverTimestamp(),
+        createdAt: serverTimestamp()
       });
+
       setShowModal(false);
       setNewRide({ title: '', description: '', level: 'Iniciante', distance: '', startTime: '', address: '' });
     } catch (err) {
@@ -99,15 +104,19 @@ export default function Feed() {
       const rideRef = doc(db, 'rides', rideId);
       const participantRef = doc(db, 'rides', rideId, 'participants', user.uid);
       
-      // Add participant record
-      await addDoc(collection(rideRef, 'participants'), {
+      const participantSnap = await getDoc(participantRef);
+      if (participantSnap.exists()) {
+        alert("Você já está participando deste pedal!");
+        return;
+      }
+
+      await setDoc(participantRef, {
         userId: user.uid,
-        displayName: user.displayName,
+        displayName: user.displayName || 'Ciclista',
         photoURL: user.photoURL,
         joinedAt: serverTimestamp()
       });
 
-      // Increment count
       await updateDoc(rideRef, {
         participantCount: increment(1)
       });
@@ -115,11 +124,7 @@ export default function Feed() {
       alert("Você confirmou sua presença!");
     } catch (err: any) {
       console.error("Error joining ride:", err);
-      if (err.message?.includes('permission-denied')) {
-        alert("Você já está participando ou não tem permissão.");
-      } else {
-        alert("Erro ao confirmar presença.");
-      }
+      alert("Erro ao confirmar presença.");
     }
   };
 
@@ -128,24 +133,24 @@ export default function Feed() {
   const filteredRides = rides.filter(r => r.title.toLowerCase().includes(search.toLowerCase()) || r.address.toLowerCase().includes(search.toLowerCase()));
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-20">
+    <main className="min-h-screen bg-white dark:bg-slate-950 pb-20 transition-colors duration-300">
       {mounted && isOffline && (
         <div className="bg-orange-500 text-white px-6 py-2 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] sticky top-0 z-30">
           <WifiOff className="w-3.5 h-3.5" /> Modo Offline Ativado
         </div>
       )}
-      <header className="bg-white px-6 pt-12 pb-6 flex flex-col gap-4 sticky top-0 z-20 shadow-sm border-b border-slate-100">
+      <header className="bg-white dark:bg-slate-900 px-6 pt-12 pb-6 flex flex-col gap-4 sticky top-0 z-20 shadow-sm border-b border-slate-100 dark:border-white/5 transition-colors">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/')} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
+            <button onClick={() => router.push('/')} className="p-2 -ml-2 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors">
               <ChevronLeft className="w-6 h-6" />
             </button>
-            <h1 className="text-2xl font-display font-bold text-slate-900">Explorar</h1>
+            <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Explorar</h1>
           </div>
           <button 
             disabled={isOffline}
             onClick={() => setShowModal(true)}
-            className={`w-10 h-10 ${isOffline ? 'bg-slate-200 text-slate-400' : 'bg-blue-600 text-white shadow-blue-200'} rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all`}
+            className={`w-10 h-10 ${isOffline ? 'bg-slate-200 dark:bg-slate-800 text-slate-400' : 'bg-blue-600 text-white shadow-blue-200 dark:shadow-none'} rounded-2xl flex items-center justify-center shadow-lg active:scale-95 transition-all`}
           >
             <Plus className="w-6 h-6" />
           </button>
@@ -158,9 +163,9 @@ export default function Feed() {
             placeholder="Buscar por nome ou cidade..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl transition-all outline-none text-slate-900"
+            className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-blue-500 focus:bg-white dark:focus:bg-white/10 rounded-2xl transition-all outline-none text-slate-900 dark:text-white"
           />
-          <button className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600">
+          <button className="absolute right-4 top-1/2 -translate-y-1/2 text-blue-600 dark:text-blue-400">
             <Filter className="w-5 h-5" />
           </button>
         </div>
@@ -173,9 +178,9 @@ export default function Feed() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.05 }}
-            className="bg-white rounded-[2rem] overflow-hidden shadow-sm border border-slate-100"
+            className="bg-slate-50 dark:bg-slate-900/50 rounded-[2rem] overflow-hidden shadow-sm border border-slate-100 dark:border-white/5 transition-colors"
           >
-            <div className="relative h-48 bg-slate-200">
+            <div className="relative h-48 bg-slate-200 dark:bg-slate-800">
               <Image 
                 src={`https://picsum.photos/seed/${ride.id}/600/400`} 
                 alt={ride.title} 
@@ -183,47 +188,47 @@ export default function Feed() {
                 className="object-cover" 
               />
               <div className="absolute top-4 left-4">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-md ${
+                <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-md shadow-sm ${
                   ride.level === 'Iniciante' ? 'bg-green-500/80' : 
                   ride.level === 'Intermediário' ? 'bg-orange-500/80' : 'bg-red-500/80'
                 }`}>
                   {ride.level}
                 </span>
               </div>
-              <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-xl text-xs font-bold text-slate-900 shadow-sm flex items-center gap-1">
-                <Users className="w-3.5 h-3.5 text-blue-600" /> {ride.participantCount || 1} Ciclistas
+              <div className="absolute bottom-4 right-4 bg-white/90 dark:bg-black/60 backdrop-blur px-3 py-1 rounded-xl text-xs font-bold text-slate-900 dark:text-white shadow-sm flex items-center gap-1">
+                <Users className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" /> {ride.participantCount || 1} Ciclistas
               </div>
             </div>
             
             <div className="p-6">
-              <h3 className="text-xl font-display font-bold text-slate-900 mb-2">{ride.title}</h3>
+              <h3 className="text-xl font-display font-bold text-slate-900 dark:text-white mb-2">{ride.title}</h3>
               <div className="space-y-2 mb-6">
-                <p className="text-xs text-slate-500 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-600" /> {ride.address}
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {ride.address}
                 </p>
-                <p className="text-xs text-slate-500 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" /> {new Date(ride.startTime).toLocaleString('pt-BR')}
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {new Date(ride.start_time).toLocaleString('pt-BR')}
                 </p>
-                <p className="text-xs text-slate-500 flex items-center gap-2">
-                  <Award className="w-4 h-4 text-blue-600" /> {ride.distance}km planejados
+                <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
+                  <Award className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {ride.distance}km planejados
                 </p>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                     <Bike className="w-4 h-4" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase leading-tight">Organizador</p>
-                    <p className="text-xs font-bold text-slate-700 leading-tight">{ride.creatorName}</p>
+                    <p className="text-[10px] text-slate-400 dark:text-white/30 font-bold uppercase leading-tight">Organizador</p>
+                    <p className="text-xs font-bold text-slate-700 dark:text-white/80 leading-tight">{ride.creator_name}</p>
                   </div>
                 </div>
                 <button 
                   disabled={isOffline}
                   onClick={() => joinRide(ride.id)}
-                  className={`font-bold py-3 px-6 rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all text-sm ${
-                    isOffline ? 'bg-slate-100 text-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100'
+                  className={`font-bold py-3 px-6 rounded-2xl shadow-lg flex items-center gap-2 active:scale-95 transition-all text-sm transition-all duration-300 ${
+                    isOffline ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-100 dark:shadow-none'
                   }`}
                 >
                   {isOffline ? 'Offline' : 'Confirmar'} <ChevronRight className="w-4 h-4" />
@@ -246,48 +251,48 @@ export default function Feed() {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="bg-white w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl relative"
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl relative transition-colors duration-300"
             >
               <button 
                 onClick={() => setShowModal(false)}
-                className="absolute right-8 top-8 text-slate-400 hover:text-slate-600"
+                className="absolute right-8 top-8 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white"
               >
                 <X className="w-6 h-6" />
               </button>
 
-              <h2 className="text-2xl font-display font-bold text-slate-900 mb-6">Criar Novo Pedal</h2>
+              <h2 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-6">Criar Novo Pedal</h2>
               
               <form onSubmit={handleCreateRide} className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Título</label>
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Título</label>
                   <input 
                     required
                     type="text"
                     placeholder="Ex: Pedal de Sábado"
                     value={newRide.title}
                     onChange={(e) => setNewRide({...newRide, title: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none"
+                    className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Distância (km)</label>
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Distância (km)</label>
                     <input 
                       required
                       type="number"
                       placeholder="30"
                       value={newRide.distance}
                       onChange={(e) => setNewRide({...newRide, distance: e.target.value})}
-                      className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none"
+                      className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Nível</label>
+                    <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Nível</label>
                     <select 
                       value={newRide.level}
                       onChange={(e) => setNewRide({...newRide, level: e.target.value})}
-                      className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none appearance-none"
+                      className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none appearance-none transition-all"
                     >
                       <option>Iniciante</option>
                       <option>Intermediário</option>
@@ -297,31 +302,31 @@ export default function Feed() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Data e Hora</label>
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Data e Hora</label>
                   <input 
                     required
                     type="datetime-local"
                     value={newRide.startTime}
                     onChange={(e) => setNewRide({...newRide, startTime: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none"
+                    className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Ponto de Encontro</label>
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Ponto de Encontro</label>
                   <input 
                     required
                     type="text"
                     placeholder="Rua, Parque, Praça..."
                     value={newRide.address}
                     onChange={(e) => setNewRide({...newRide, address: e.target.value})}
-                    className="w-full p-4 bg-slate-50 border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none"
+                    className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
                   />
                 </div>
 
                 <button 
                   type="submit"
-                  className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-200 mt-4 active:scale-95 transition-all"
+                  className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-200 dark:shadow-none mt-4 active:scale-95 transition-all"
                 >
                   Publicar Pedal
                 </button>

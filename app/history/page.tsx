@@ -12,8 +12,9 @@ import {
   onSnapshot, 
   doc, 
   updateDoc, 
-  deleteDoc, 
-  increment 
+  deleteDoc,
+  increment,
+  getDoc
 } from 'firebase/firestore';
 import { 
   ChevronLeft, 
@@ -29,6 +30,7 @@ import {
   CloudOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WorkoutItem } from '@/components/WorkoutItem';
 
 export default function HistoryPage() {
   const { user, loading, isOffline } = useFirebase();
@@ -39,7 +41,6 @@ export default function HistoryPage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  const [showOptionsId, setShowOptionsId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [deletingWorkout, setDeletingWorkout] = useState<any | null>(null);
@@ -48,7 +49,7 @@ export default function HistoryPage() {
     if (!user) return;
 
     const q = query(
-      collection(db, 'workouts'),
+      collection(db, 'workouts'), 
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc')
     );
@@ -56,25 +57,17 @@ export default function HistoryPage() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setWorkouts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'workouts history');
+      handleFirestoreError(error, OperationType.LIST, 'workouts');
     });
 
     return () => unsubscribe();
   }, [user]);
 
-  const handleEditWorkout = async (e: React.FormEvent, workoutId: string) => {
-    e.preventDefault();
-    if (!editName.trim()) return;
-
+  const handleUpdate = async (workoutId: string, newName: string) => {
     try {
-      await updateDoc(doc(db, 'workouts', workoutId), {
-        name: editName.trim()
-      });
-      setEditingId(null);
-      setEditName('');
+      await updateDoc(doc(db, 'workouts', workoutId), { name: newName });
     } catch (err) {
-      console.error("Error updating workout name:", err);
-      handleFirestoreError(err, OperationType.WRITE, `workouts/${workoutId}`);
+      console.error("Erro ao atualizar treino:", err);
     }
   };
 
@@ -82,136 +75,63 @@ export default function HistoryPage() {
     if (!user || !deletingWorkout) return;
 
     try {
+      // Deletar o treino
       await deleteDoc(doc(db, 'workouts', deletingWorkout.id));
+      
+      // Decrementar estatísticas
       const userRef = doc(db, 'users', user.uid);
       await updateDoc(userRef, {
-        "stats.totalDistance": increment(-(deletingWorkout.distance || 0)),
-        "stats.totalRides": increment(-1),
-        "stats.points": increment(-(Math.floor((deletingWorkout.distance || 0) * 10)))
+        'stats.totalDistance': increment(-(deletingWorkout.distance || 0)),
+        'stats.totalRides': increment(-1),
+        'stats.points': increment(-Math.floor((deletingWorkout.distance || 0) * 10))
       });
+
       setDeletingWorkout(null);
-      setShowOptionsId(null);
     } catch (err) {
-      console.error("Error deleting workout:", err);
-      handleFirestoreError(err, OperationType.WRITE, `workouts/${deletingWorkout.id}`);
+      console.error("Erro ao excluir treino:", err);
     }
   };
 
   if (loading || !user) return null;
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-12">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-32 transition-colors duration-300">
       {mounted && isOffline && (
         <div className="bg-orange-500 text-white px-6 py-2 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] sticky top-0 z-30">
           <WifiOff className="w-3.5 h-3.5" /> Modo Offline Ativado
         </div>
       )}
-      <header className="bg-white px-6 pt-12 pb-6 flex flex-col gap-4 sticky top-0 z-20 shadow-sm border-b border-slate-100">
+      <header className="bg-white dark:bg-slate-900 px-6 pt-12 pb-6 flex flex-col gap-4 sticky top-0 z-20 shadow-sm border-b border-slate-100 dark:border-white/5 transition-colors">
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/')} className="p-2 -ml-2 text-slate-400 hover:text-slate-900 transition-colors">
+          <button onClick={() => router.push('/')} className="p-2 -ml-2 text-slate-400 dark:text-white/40 hover:text-slate-900 dark:hover:text-white transition-colors">
             <ChevronLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-2xl font-display font-bold text-slate-900">Histórico Completo</h1>
+          <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Histórico Completo</h1>
         </div>
       </header>
 
       <section className="px-6 py-8">
         {workouts.length === 0 ? (
-          <div className="text-center py-20 bg-white rounded-[2.5rem] p-12 border-2 border-dashed border-slate-100">
-            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 mx-auto mb-4">
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-[2.5rem] p-12 border-2 border-dashed border-slate-100 dark:border-white/5 shadow-sm transition-colors">
+            <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-300 dark:text-white/20 mx-auto mb-4">
               <HistoryIcon className="w-8 h-8" />
             </div>
-            <p className="text-slate-400 font-bold">Nenhum treino registrado ainda.</p>
+            <p className="text-slate-400 dark:text-white/40 font-bold">Nenhum treino registrado ainda.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {workouts.map((workout) => (
-              <motion.div 
-                layout
+              <WorkoutItem 
                 key={workout.id} 
-                className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 group relative"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-50 rounded-2xl flex items-center justify-center text-blue-500">
-                      <HistoryIcon className="w-5 h-5" />
-                    </div>
-                    <div>
-                      {editingId === workout.id ? (
-                        <form onSubmit={(e) => handleEditWorkout(e, workout.id)} className="flex items-center gap-2">
-                          <input 
-                            autoFocus
-                            type="text" 
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            className="bg-slate-50 border-none rounded-lg px-2 py-1 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-100"
-                          />
-                          <button type="submit" className="text-green-500 hover:scale-110 active:scale-95 transition-transform">
-                            <Check className="w-4 h-4" />
-                          </button>
-                          <button type="button" onClick={() => setEditingId(null)} className="text-red-400">
-                            <CloseIcon className="w-4 h-4" />
-                          </button>
-                        </form>
-                      ) : (
-                        <h4 className="font-bold text-slate-900 text-sm">{workout.name || 'Pedal de Treino'}</h4>
-                      )}
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
-                        <Clock className="w-3 h-3" />
-                        {workout.createdAt?.toDate ? workout.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recentemente'}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right flex items-center gap-2">
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">{(workout.distance || 0).toFixed(1)} km</p>
-                      <p className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">{(workout.duration || 0)} min</p>
-                    </div>
-                    <button 
-                      onClick={() => setShowOptionsId(showOptionsId === workout.id ? null : workout.id)}
-                      className="p-1 text-slate-300 hover:text-slate-600 transition-colors"
-                    >
-                      <MoreVertical className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Options Menu */}
-                <AnimatePresence>
-                  {showOptionsId === workout.id && (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                      className="absolute top-14 right-4 z-10 bg-white shadow-xl shadow-slate-200/50 rounded-2xl p-1 border border-slate-100 min-w-[140px]"
-                    >
-                      <button 
-                        onClick={() => {
-                          setEditingId(workout.id);
-                          setEditName(workout.name || '');
-                          setShowOptionsId(null);
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors rounded-xl mb-1"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" /> Editar Nome
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setDeletingWorkout(workout);
-                          setShowOptionsId(null);
-                        }}
-                        className="w-full flex items-center gap-3 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-50 transition-colors rounded-xl"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Excluir Treino
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </motion.div>
+                workout={workout}
+                onUpdate={handleUpdate}
+                onDelete={setDeletingWorkout}
+              />
             ))}
           </div>
         )}
       </section>
+
 
       <AnimatePresence>
         {deletingWorkout && (
@@ -225,19 +145,19 @@ export default function HistoryPage() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl"
+              className="bg-white dark:bg-slate-900 rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl transition-colors duration-300"
             >
-              <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mx-auto mb-6">
+              <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mx-auto mb-6">
                 <Trash2 className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-black text-slate-900 text-center mb-2">Excluir Treino?</h3>
-              <p className="text-slate-500 text-center text-sm mb-8 leading-relaxed">
-                Esta ação excluirá permanentemente o treino <span className="font-bold text-slate-900">"{deletingWorkout.name || 'Pedal sem nome'}"</span> e não pode ser desfeita.
+              <h3 className="text-xl font-black text-slate-900 dark:text-white text-center mb-2">Excluir Treino?</h3>
+              <p className="text-slate-500 dark:text-white/40 text-center text-sm mb-8 leading-relaxed">
+                Esta ação excluirá permanentemente o treino <span className="font-bold text-slate-900 dark:text-white">&quot;{deletingWorkout.name || 'Pedal sem nome'}&quot;</span> e não pode ser desfeita.
               </p>
               <div className="flex gap-4">
                 <button 
                   onClick={() => setDeletingWorkout(null)}
-                  className="flex-1 h-16 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm hover:bg-slate-200 transition-colors"
+                  className="flex-1 h-16 bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-white rounded-2xl font-bold text-sm hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
                 >
                   Cancelar
                 </button>

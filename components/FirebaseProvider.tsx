@@ -1,14 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, onAuthStateChanged, User } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import firebaseConfig from '@/firebase-applet-config.json';
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+import { auth, db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 interface FirebaseContextType {
   user: User | null;
@@ -27,7 +22,7 @@ const FirebaseContext = createContext<FirebaseContextType>({
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(false);
+  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !window.navigator.onLine : false);
   const [manualOffline, setManualOffline] = useState(false);
 
   useEffect(() => {
@@ -58,30 +53,50 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (authUser) => {
-      setUser(authUser);
-      if (authUser && !isOffline) {
-        const userRef = doc(db, 'users', authUser.uid);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      
+      const realTimeOffline = typeof window !== 'undefined' ? (manualOffline || !window.navigator.onLine) : false;
+      
+      if (currentUser && !realTimeOffline) {
+        // Ensure user record exists in Firestore
         try {
-          const userSnap = await getDoc(userRef);
-          if (!userSnap.exists()) {
-            await setDoc(userRef, {
-              displayName: authUser.displayName || 'Ciclista',
-              email: authUser.email,
-              photoURL: authUser.photoURL,
-              stats: { totalDistance: 0, totalRides: 0, points: 0 },
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (!userDoc.exists()) {
+            await setDoc(userDocRef, {
+              displayName: currentUser.displayName || 'Ciclista',
+              email: currentUser.email,
+              photoURL: currentUser.photoURL,
+              bio: 'Adoro pedalar!',
+              stats: {
+                totalDistance: 0,
+                totalRides: 0,
+                points: 0,
+                monthlyDistance: 0,
+                lastMonthUpdated: ''
+              },
+              records: {
+                longestRide: 0
+              },
               createdAt: serverTimestamp()
             });
           }
-        } catch (err) {
-          console.error("Error creating/getting user doc:", err);
+        } catch (error: any) {
+          if (error?.message?.includes('offline')) {
+            console.warn("Skipping user record initialization: client is offline.");
+          } else {
+            handleFirestoreError(error, OperationType.WRITE, `users/${currentUser.uid}`);
+          }
         }
       }
+      
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [isOffline]);
+  }, [manualOffline]);
 
   return (
     <FirebaseContext.Provider value={{ user, loading, isOffline, toggleOffline }}>

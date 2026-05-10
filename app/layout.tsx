@@ -2,6 +2,7 @@ import { Inter, Space_Grotesk } from 'next/font/google';
 import './globals.css';
 import { FirebaseProvider } from '@/components/FirebaseProvider';
 import { NavBar } from '@/components/NavBar';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -21,10 +22,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${inter.variable} ${spaceGrotesk.variable}`}>
       <body className="antialiased overflow-x-hidden">
-        <FirebaseProvider>
-          {children}
-          <NavBar />
-        </FirebaseProvider>
+        <ThemeProvider>
+          <FirebaseProvider>
+            {children}
+            <NavBar />
+          </FirebaseProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

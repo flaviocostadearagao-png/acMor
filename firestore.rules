@@ -1,22 +1,18 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 0. Global Safety Net
+    // 1. Master Gate / Deny All
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Helper Functions
+    // --- Helpers ---
     function isSignedIn() {
       return request.auth != null;
     }
     
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
     function incoming() {
@@ -27,62 +23,68 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // --- Collections ---
-
-    // Users
-    match /users/{userId} {
-      function isValidUser(data) {
-        return data.displayName is string && data.displayName.size() <= 100 &&
-               data.email is string && data.email.size() <= 100;
-      }
-      
-      allow get: if isSignedIn();
-      allow list: if isSignedIn(); // Allow searching users for ranking
-      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(userId) && isValidUser(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'bio', 'stats'])
-      );
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Rides
-    match /rides/{rideId} {
-      function isValidRide(data) {
-        return data.title is string && data.title.size() <= 100 &&
-               data.creatorId == request.auth.uid &&
-               data.distance is number &&
-               data.level in ['Iniciante', 'Intermediário', 'Avançado'];
-      }
+    // --- Collections ---
 
+    // USERS
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming());
+      
+      function isValidUser(data) {
+        return data.keys().hasAll(['displayName', 'email'])
+          && data.displayName is string && data.displayName.size() <= 100
+          && data.email is string && data.email.size() <= 100;
+      }
+    }
+
+    // WORKOUTS
+    match /workouts/{workoutId} {
+      allow read: if isSignedIn() && (isOwner(existing().userId) || isOwner(incoming().userId));
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && isOwner(incoming().userId) && isValidWorkout(incoming());
+      allow update: if isSignedIn() && isOwner(existing().userId) && isValidWorkout(incoming());
+      allow delete: if isSignedIn() && isOwner(existing().userId);
+
+      function isValidWorkout(data) {
+        return data.userId == request.auth.uid
+          && data.distance is number
+          && data.duration is number
+          && data.path is list;
+      }
+    }
+
+    // RIDES
+    match /rides/{rideId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidRide(incoming()) && incoming().createdAt == request.time;
+      allow create: if isSignedIn() && isOwner(incoming().creatorId) && isValidRide(incoming());
       allow update: if isSignedIn() && (
-        // Creator can edit everything
-        (isOwner(existing().creatorId) && isValidRide(incoming())) ||
-        // Others can only update participantCount (simulated, better to use subcollection)
+        isOwner(existing().creatorId) || 
         (incoming().diff(existing()).affectedKeys().hasOnly(['participantCount']))
       );
       allow delete: if isSignedIn() && isOwner(existing().creatorId);
 
-      match /participants/{userId} {
+      function isValidRide(data) {
+        return data.creatorId == request.auth.uid
+          && data.title is string && data.title.size() <= 200
+          && data.participantCount is number;
+      }
+
+      // PARTICIPANTS
+      match /participants/{participantId} {
         allow read: if isSignedIn();
-        allow write: if isOwner(userId);
-      }
-    }
+        allow create: if isOwner(participantId) && isValidParticipant(incoming());
+        allow delete: if isOwner(participantId);
 
-    // Workouts
-    match /workouts/{workoutId} {
-      function isValidWorkout(data) {
-        return data.userId == request.auth.uid &&
-               data.distance is number &&
-               data.duration is number;
+        function isValidParticipant(data) {
+          return data.userId == request.auth.uid;
+        }
       }
-
-      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidWorkout(incoming()) && incoming().createdAt == request.time;
-      allow update: if isOwner(existing().userId) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name'])
-      );
-      allow delete: if isOwner(existing().userId);
     }
   }
 }

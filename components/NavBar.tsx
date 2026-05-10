@@ -8,27 +8,30 @@ import {
   Trophy, 
   User, 
   Wifi,
-  WifiOff
+  WifiOff,
+  Users
 } from 'lucide-react';
 import { useFirebase } from './FirebaseProvider';
 import { motion } from 'framer-motion';
+import { DarkModeToggle } from './DarkModeToggle';
 
 export function NavBar() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isOffline, toggleOffline } = useFirebase();
 
-  if (!user || pathname === '/tracking') return null;
+  if (!user) return null;
 
   const navItems = [
     { icon: Home, label: 'Início', path: '/' },
-    { icon: Bike, label: 'Feed', path: '/feed', disabledOffline: true },
+    { icon: Bike, label: 'Treino', path: '/tracking' },
+    { icon: Users, label: 'Feed', path: '/feed', disabledOffline: true },
     { icon: Trophy, label: 'Ranking', path: '/ranking', disabledOffline: true },
     { icon: User, label: 'Perfil', path: '/profile' },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-xl border-t border-slate-100 px-6 py-4 z-40 pb-safe">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-t border-slate-100 dark:border-slate-800 px-6 py-4 z-40 pb-safe">
       <div className="max-w-md mx-auto flex items-center justify-between">
         {navItems.map((item) => {
           const isActive = pathname === item.path;
@@ -41,10 +44,10 @@ export function NavBar() {
               onClick={() => router.push(item.path)}
               className={`flex flex-col items-center gap-1 transition-all ${
                 isActive 
-                  ? 'text-blue-600' 
+                  ? 'text-blue-600 dark:text-blue-400' 
                   : isDisabled 
-                    ? 'text-slate-300' 
-                    : 'text-slate-400 hover:text-slate-600'
+                    ? 'text-slate-300 dark:text-slate-700' 
+                    : 'text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300'
               }`}
             >
               <div className="relative">
@@ -52,7 +55,7 @@ export function NavBar() {
                 {isActive && (
                   <motion.div 
                     layoutId="activeTab"
-                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-600 rounded-full"
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-blue-600 dark:bg-blue-400 rounded-full"
                   />
                 )}
               </div>
@@ -61,12 +64,12 @@ export function NavBar() {
           );
         })}
 
-        <div className="w-px h-8 bg-slate-100 mx-2" />
+        <div className="w-px h-8 bg-slate-100 dark:bg-slate-800 mx-2" />
 
         <button
           onClick={toggleOffline}
           className={`flex flex-col items-center gap-1 transition-all ${
-            isOffline ? 'text-orange-500' : 'text-green-500 hover:text-green-600'
+            isOffline ? 'text-orange-500' : 'text-green-500 hover:text-green-600 dark:text-green-400'
           }`}
         >
           <div className="relative">
@@ -76,6 +79,10 @@ export function NavBar() {
             {isOffline ? 'Offline' : 'Online'}
           </span>
         </button>
+        
+        <div className="ml-2">
+            <DarkModeToggle />
+        </div>
       </div>
     </nav>
   );

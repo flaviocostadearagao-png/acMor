@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
-import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { 
   Trophy, 
@@ -38,15 +38,13 @@ export default function Ranking() {
     if (!user) return;
 
     const q = query(
-      collection(db, 'users'),
-      orderBy('stats.points', 'desc'),
+      collection(db, 'users'), 
+      orderBy('stats.monthlyDistance', 'desc'), 
       limit(20)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
     });
 
     return () => unsubscribe();
@@ -58,20 +56,23 @@ export default function Ranking() {
   const remaining = users.slice(3);
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-20">
+    <main className="min-h-screen bg-white dark:bg-slate-950 pb-20 transition-colors duration-300">
       {mounted && isOffline && (
         <div className="bg-orange-500 text-white px-6 py-2.5 flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] sticky top-0 z-50">
           <WifiOff className="w-3.5 h-3.5" /> Modo Offline Ativado • Dados podem estar desatualizados
         </div>
       )}
-      <header className="bg-blue-600 px-6 pt-12 pb-16 rounded-b-[4rem] text-center text-white shadow-xl shadow-blue-100 flex flex-col items-center relative">
+      <header className="bg-blue-600 px-6 pt-12 pb-16 rounded-b-[4rem] text-center text-white shadow-xl dark:shadow-none flex flex-col items-center relative transition-colors duration-300">
         <button 
           onClick={() => router.push('/')} 
           className="absolute left-6 top-12 p-3 bg-white/20 backdrop-blur-md rounded-2xl text-white hover:bg-white/30 transition-colors"
         >
           <ChevronLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-display font-bold mb-8">Pedal Ranking</h1>
+        <h1 className="text-2xl font-display font-bold mb-1">Ranking Mensal</h1>
+        <p className="text-[10px] font-bold text-white/50 uppercase tracking-[0.3em] mb-8">
+          {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+        </p>
         
         {/* Podium */}
         <div className="flex items-end justify-center gap-4 w-full max-w-sm mb-4">
@@ -110,11 +111,11 @@ export default function Ranking() {
       </header>
 
       <div className="px-6 -mt-8">
-        <div className="bg-white rounded-[2.5rem] shadow-xl shadow-slate-100 p-2 border border-slate-50">
-          <div className="flex items-center gap-4 p-4 mb-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50">
+        <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-xl dark:shadow-none shadow-slate-100 p-2 border border-slate-50 dark:border-white/5 transition-colors duration-300">
+          <div className="flex items-center gap-4 p-4 mb-2 text-[10px] font-bold text-slate-400 dark:text-white/30 uppercase tracking-widest border-b border-slate-50 dark:border-white/5">
             <span className="w-8 ml-2">#</span>
             <span className="flex-1">Ciclista</span>
-            <span className="text-right mr-2">Pontos</span>
+            <span className="text-right mr-2">Distância</span>
           </div>
 
           <div className="space-y-1">
@@ -124,33 +125,33 @@ export default function Ranking() {
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
-                className={`flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 transition-colors ${u.id === user.uid ? 'bg-blue-50 ring-1 ring-blue-100' : ''}`}
+                className={`flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-colors ${u.id === user.uid ? 'bg-blue-50 dark:bg-blue-600/10 ring-1 ring-blue-100 dark:ring-blue-500/20' : ''}`}
               >
-                <span className="w-8 ml-2 text-sm font-display font-bold text-slate-400">{idx + 4}</span>
+                <span className="w-8 ml-2 text-sm font-display font-bold text-slate-400 dark:text-white/20">{idx + 4}</span>
                 <div className="flex-1 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 overflow-hidden">
+                  <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden">
                     {u.photoURL ? (
                       <Image src={u.photoURL} alt={u.displayName} width={40} height={40} className="object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-500 font-bold bg-slate-100">
+                      <div className="w-full h-full flex items-center justify-center text-slate-500 dark:text-white/40 font-bold bg-slate-100 dark:bg-slate-800">
                         {u.displayName?.charAt(0) || 'U'}
                       </div>
                     )}
                   </div>
                   <div>
-                    <h4 className="text-sm font-bold text-slate-900">{u.displayName}</h4>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{u.stats?.totalRides || 0} pedais</p>
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white transition-colors">{u.displayName}</h4>
+                    <p className="text-[10px] text-slate-400 dark:text-white/30 font-bold uppercase tracking-wider transition-colors">{u.stats?.totalRides || 0} pedais</p>
                   </div>
                 </div>
                 <div className="text-right mr-2">
-                  <p className="text-sm font-display font-bold text-blue-600">{u.stats?.points || 0}</p>
+                  <p className="text-sm font-display font-bold text-blue-600 dark:text-blue-400 transition-colors">{(u.stats?.monthlyDistance || 0).toFixed(1)} km</p>
                 </div>
               </motion.div>
             ))}
           </div>
 
           {remaining.length === 0 && (
-            <div className="p-12 text-center text-slate-400">
+            <div className="p-12 text-center text-slate-400 dark:text-white/20">
                <Trophy className="w-12 h-12 mx-auto mb-4 opacity-10" />
                <p className="text-sm">Explore o ranking completo pedalando!</p>
             </div>
@@ -181,8 +182,8 @@ function PodiamRank({ user, rank, height, color, iconColor, isCenter }: { user: 
       </div>
       <p className="text-[10px] font-bold text-white mb-2 max-w-[80px] truncate">{user.displayName}</p>
       <div className={`${height} w-16 bg-white/10 backdrop-blur-md rounded-t-2xl flex flex-col items-center pt-2`}>
-        <p className="text-xs font-bold text-white">{user.stats?.points || 0}</p>
-        <p className="text-[8px] font-bold text-white/50 uppercase tracking-widest leading-none">PTS</p>
+        <p className="text-xs font-bold text-white">{(user.stats?.monthlyDistance || 0).toFixed(0)}</p>
+        <p className="text-[8px] font-bold text-white/50 uppercase tracking-widest leading-none">KM</p>
       </div>
     </div>
   );
