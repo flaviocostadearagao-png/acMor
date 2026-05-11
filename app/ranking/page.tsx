@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
+import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { UserProfile } from '@/lib/types';
 import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { 
   Trophy, 
@@ -17,14 +18,14 @@ import {
   WifiOff,
   CloudLightning
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import Image from 'next/image';
 
 export default function Ranking() {
   const { user, loading, isOffline } = useFirebase();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -44,7 +45,9 @@ export default function Ranking() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any as UserProfile)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'users');
     });
 
     return () => unsubscribe();
@@ -131,7 +134,7 @@ export default function Ranking() {
                 <div className="flex-1 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-800 overflow-hidden">
                     {u.photoURL ? (
-                      <Image src={u.photoURL} alt={u.displayName} width={40} height={40} className="object-cover" />
+                      <Image src={u.photoURL} alt={u.displayName} width={40} height={40} className="object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-slate-500 dark:text-white/40 font-bold bg-slate-100 dark:bg-slate-800">
                         {u.displayName?.charAt(0) || 'U'}
@@ -163,13 +166,13 @@ export default function Ranking() {
   );
 }
 
-function PodiamRank({ user, rank, height, color, iconColor, isCenter }: { user: any, rank: number, height: string, color: string, iconColor: string, isCenter?: boolean }) {
+function PodiamRank({ user, rank, height, color, iconColor, isCenter }: { user: UserProfile, rank: number, height: string, color: string, iconColor: string, isCenter?: boolean }) {
   return (
     <div className={`flex flex-col items-center ${isCenter ? 'z-10' : ''}`}>
       <div className={`relative ${isCenter ? 'w-20 h-20' : 'w-16 h-16'} rounded-full mb-3`}>
         <div className={`absolute inset-0 rounded-full border-4 border-white overflow-hidden shadow-lg`}>
           {user.photoURL ? (
-            <Image src={user.photoURL} alt={user.displayName} fill className="object-cover" />
+            <Image src={user.photoURL} alt={user.displayName} fill className="object-cover" referrerPolicy="no-referrer" />
           ) : (
             <div className="w-full h-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xl uppercase">
                {user.displayName?.charAt(0)}

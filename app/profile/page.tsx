@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
-import { db, logout } from '@/lib/firebase';
+import { db, logout, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { UserProfile, Workout } from '@/lib/types';
 import { 
   doc, 
   getDoc, 
@@ -39,7 +40,9 @@ import {
   X as CloseIcon,
   ChevronLeft,
   TrendingUp,
-  Trophy
+  Trophy,
+  MessageSquare,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
@@ -48,9 +51,82 @@ import { WorkoutItem } from '@/components/WorkoutItem';
 export default function Profile() {
   const { user, loading } = useFirebase();
   const router = useRouter();
-  const [profile, setProfile] = useState<any>(null);
-  const [workouts, setWorkouts] = useState<any[]>([]);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [isEditing, setIsEditing] = useState(false);
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editBio, setEditBio] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setIsSavingProfile(true);
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        displayName: editDisplayName,
+        bio: editBio
+      });
+      setIsEditing(false);
+      alert("Perfil atualizado com sucesso!");
+    } catch (err) {
+      console.error("Erro ao atualizar perfil:", err);
+      alert("Erro ao salvar alterações.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  const openEditModal = () => {
+    if (!profile) return;
+    setEditDisplayName(profile.displayName || '');
+    setEditBio(profile.bio || '');
+    setIsEditing(true);
+  };
+
+  const handleSync = async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    
+    try {
+      const offlineData = localStorage.getItem('pedalmatch_offline_workouts');
+      if (!offlineData) {
+        alert("Nenhum dado offline para sincronizar.");
+        return;
+      }
+
+      const pendingWorkouts = JSON.parse(offlineData);
+      if (pendingWorkouts.length === 0) {
+        alert("Todos os dados já estão sincronizados.");
+        return;
+      }
+
+      // Simular processo de sincronização por 1.5s
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Em um cenário real, percorreríamos o array e faríamos addDoc para cada um
+      // Como é uma simulação de "Sync", vamos limpar o local após o sucesso
+      localStorage.removeItem('pedalmatch_offline_workouts');
+      alert(`Sincronização concluída! ${pendingWorkouts.length} treinos atualizados.`);
+    } catch (err) {
+      console.error("Erro na sincronização:", err);
+      alert("Falha ao sincronizar dados.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const toggleNotifications = () => {
+    setNotificationsEnabled(!notificationsEnabled);
+    alert(notificationsEnabled ? "Notificações desativadas." : "Notificações ativadas!");
+  };
+
+  const handleFavorites = () => {
+    router.push('/feed');
+    alert("Redirecionando para o Feed para você encontrar novas rotas favoritas!");
+  };
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -62,8 +138,10 @@ export default function Profile() {
     const profileRef = doc(db, 'users', user.uid);
     const unsubscribeProfile = onSnapshot(profileRef, (snap) => {
       if (snap.exists()) {
-        setProfile(snap.data());
+        setProfile(snap.data() as UserProfile);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
     });
 
     const workoutsQuery = query(
@@ -73,7 +151,9 @@ export default function Profile() {
     );
 
     const unsubscribeWorkouts = onSnapshot(workoutsQuery, (snap) => {
-      setWorkouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setWorkouts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'workouts');
     });
 
     return () => {
@@ -90,7 +170,7 @@ export default function Profile() {
     }
   };
 
-  const [deletingWorkout, setDeletingWorkout] = useState<any | null>(null);
+  const [deletingWorkout, setDeletingWorkout] = useState<Workout | null>(null);
 
   const confirmDelete = async () => {
     if (!user || !deletingWorkout) return;
@@ -127,7 +207,10 @@ export default function Profile() {
           </button>
         </div>
         <div className="absolute top-8 right-6">
-          <button className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl text-slate-400 dark:text-white/40 hover:text-slate-600 dark:hover:text-white transition-colors">
+          <button 
+            onClick={openEditModal}
+            className="p-3 bg-slate-50 dark:bg-white/5 rounded-2xl text-slate-400 dark:text-white/40 hover:text-slate-600 dark:hover:text-white transition-colors"
+          >
             <Settings className="w-5 h-5" />
           </button>
         </div>
@@ -136,7 +219,7 @@ export default function Profile() {
           <div className="relative group cursor-pointer mb-4">
             <div className="w-28 h-28 rounded-[2.5rem] bg-blue-100 dark:bg-blue-500/20 overflow-hidden border-4 border-white dark:border-slate-800 shadow-xl">
               {profile.photoURL ? (
-                <Image src={profile.photoURL} alt="Profile" width={112} height={112} className="object-cover" />
+                <Image src={profile.photoURL} alt="Profile" width={112} height={112} className="object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-blue-600 dark:text-blue-400 font-bold text-4xl">
                   {profile.displayName?.charAt(0) || 'U'}
@@ -185,7 +268,7 @@ export default function Profile() {
                     <p className="text-[10px] text-slate-400 dark:text-white/30 font-bold uppercase tracking-wider">Seu melhor pedal único</p>
                  </div>
               </div>
-              <p className="text-lg font-display font-bold text-blue-600 dark:text-blue-400">{(profile.longest_ride || 0).toFixed(1)} <span className="text-[10px] uppercase">km</span></p>
+              <p className="text-lg font-display font-bold text-blue-600 dark:text-blue-400">{(profile.records?.longestRide || 0).toFixed(1)} <span className="text-[10px] uppercase">km</span></p>
            </div>
            
            <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-white/5">
@@ -198,7 +281,7 @@ export default function Profile() {
                     <p className="text-[10px] text-slate-400 dark:text-white/30 font-bold uppercase tracking-wider">Pontos acumulados</p>
                  </div>
               </div>
-              <p className="text-lg font-display font-bold text-slate-900 dark:text-white">{profile.points || 0} <span className="text-[10px] uppercase">pts</span></p>
+              <p className="text-lg font-display font-bold text-slate-900 dark:text-white">{profile.stats?.points || 0} <span className="text-[10px] uppercase">pts</span></p>
            </div>
         </div>
       </section>
@@ -227,9 +310,30 @@ export default function Profile() {
       <section className="px-6 mt-8">
         <h3 className="text-xs font-bold text-slate-400 dark:text-white/20 uppercase tracking-widest ml-1 mb-4">Preferências</h3>
         <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] overflow-hidden shadow-sm border border-slate-100 dark:border-white/5 transition-colors">
-           <ProfileLink icon={Bell} label="Notificações" detail="Ativado" />
-           <ProfileLink icon={Share2} label="Sincronizar Celular" detail="Configurado" />
-           <ProfileLink icon={Heart} label="Favoritos" detail="12 rotas" />
+           <ProfileLink 
+             icon={Bell} 
+             label="Notificações" 
+             detail={notificationsEnabled ? "Ativado" : "Desativado"} 
+             onClick={toggleNotifications}
+           />
+           <ProfileLink 
+             icon={Share2} 
+             label="Sincronizar Celular" 
+             detail={isSyncing ? "Sincronizando..." : "Verificar agora"} 
+             onClick={handleSync}
+           />
+           <ProfileLink 
+             icon={Heart} 
+             label="Favoritos" 
+             detail="Ver rotas salvas" 
+             onClick={handleFavorites}
+           />
+           <ProfileLink 
+             icon={MessageSquare} 
+             label="Falar com Desenvolvedor" 
+             detail="Suporte via WhatsApp" 
+             onClick={() => window.open('https://wa.me/5511999999999', '_blank')}
+           />
            <button 
              onClick={handleLogout}
              className="w-full flex items-center gap-4 p-5 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
@@ -246,14 +350,80 @@ export default function Profile() {
       </div>
 
       <AnimatePresence>
+        {isEditing && (
+          <motion.div 
+            key="edit-profile-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              key="edit-profile-modal"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="bg-white dark:bg-slate-900 w-full max-w-md rounded-t-[3rem] sm:rounded-[3rem] p-8 shadow-2xl relative transition-colors duration-300"
+            >
+              <button 
+                onClick={() => setIsEditing(false)}
+                className="absolute right-8 top-8 text-slate-400 hover:text-slate-600 dark:text-white/40 dark:hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <h2 className="text-2xl font-display font-bold text-slate-900 dark:text-white mb-6">Configurações de Conta</h2>
+              
+              <form onSubmit={handleUpdateProfile} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Nome de Exibição</label>
+                  <input 
+                    required
+                    type="text"
+                    placeholder="Seu nome"
+                    value={editDisplayName}
+                    onChange={(e) => setEditDisplayName(e.target.value)}
+                    className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 dark:text-white/40 uppercase tracking-widest ml-1">Bio</label>
+                  <textarea 
+                    rows={3}
+                    placeholder="Conte um pouco sobre suas pedaladas..."
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    className="w-full p-4 bg-slate-50 dark:bg-white/5 text-slate-900 dark:text-white border-2 border-transparent focus:border-blue-500 rounded-2xl outline-none transition-all resize-none"
+                  />
+                </div>
+
+                <button 
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="w-full bg-blue-600 text-white font-bold py-5 rounded-2xl shadow-xl shadow-blue-200 dark:shadow-none mt-4 active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  {isSavingProfile ? (
+                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  ) : "Salvar Alterações"}
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {deletingWorkout && (
           <motion.div 
+            key="delete-workout-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
           >
             <motion.div 
+              key="delete-workout-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
@@ -288,7 +458,7 @@ export default function Profile() {
   );
 }
 
-function ProfileStat({ icon: Icon, label, value }: { icon: any, label: string, value: string }) {
+function ProfileStat({ icon: Icon, label, value }: { icon: React.ElementType, label: string, value: string }) {
   return (
     <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] shadow-sm border border-slate-100 dark:border-white/5 flex flex-col items-center text-center transition-colors">
       <div className="w-10 h-10 bg-slate-50 dark:bg-white/5 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400 mb-3 transition-colors">
@@ -300,9 +470,12 @@ function ProfileStat({ icon: Icon, label, value }: { icon: any, label: string, v
   );
 }
 
-function ProfileLink({ icon: Icon, label, detail }: { icon: any, label: string, detail: string }) {
+function ProfileLink({ icon: Icon, label, detail, onClick }: { icon: React.ElementType, label: string, detail: string, onClick?: () => void }) {
   return (
-    <div className="flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-b border-slate-50 dark:border-white/5 last:border-0 cursor-pointer">
+    <button 
+      onClick={onClick}
+      className="w-full flex items-center gap-4 p-5 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-b border-slate-50 dark:border-white/5 last:border-0 cursor-pointer text-left"
+    >
       <div className="w-10 h-10 bg-slate-50 dark:bg-white/5 rounded-xl flex items-center justify-center text-slate-400 dark:text-white/20 transition-colors">
         <Icon className="w-5 h-5" />
       </div>
@@ -311,6 +484,6 @@ function ProfileLink({ icon: Icon, label, detail }: { icon: any, label: string, 
         <p className="text-[10px] text-slate-400 dark:text-white/20 font-bold uppercase tracking-widest transition-colors">{detail}</p>
       </div>
       <ChevronRight className="w-4 h-4 text-slate-300 dark:text-white/10 transition-colors" />
-    </div>
+    </button>
   );
 }

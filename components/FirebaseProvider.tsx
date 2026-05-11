@@ -22,11 +22,14 @@ const FirebaseContext = createContext<FirebaseContextType>({
 export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(typeof window !== 'undefined' ? !window.navigator.onLine : false);
+  const [isOffline, setIsOffline] = useState(false);
   const [manualOffline, setManualOffline] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    
+    // Initial sync
+    setIsOffline(manualOffline || !window.navigator.onLine);
 
     const handleOnline = () => {
       if (!manualOffline) setIsOffline(false);

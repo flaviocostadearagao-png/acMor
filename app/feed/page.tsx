@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
-import { db } from '@/lib/firebase';
+import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { Ride } from '@/lib/types';
 import { 
   collection, 
   addDoc, 
@@ -40,7 +41,7 @@ export default function Feed() {
   const { user, loading, isOffline } = useFirebase();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [rides, setRides] = useState<any[]>([]);
+  const [rides, setRides] = useState<Ride[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -67,7 +68,9 @@ export default function Feed() {
 
     const q = query(collection(db, 'rides'), orderBy('createdAt', 'desc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setRides(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Ride)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'rides');
     });
 
     return () => unsubscribe();
@@ -128,9 +131,15 @@ export default function Feed() {
     }
   };
 
-  if (loading || !user) return null;
+  const filteredRides = useMemo(() => {
+    const term = search.toLowerCase();
+    return rides.filter(r => 
+      r.title.toLowerCase().includes(term) || 
+      r.address.toLowerCase().includes(term)
+    );
+  }, [rides, search]);
 
-  const filteredRides = rides.filter(r => r.title.toLowerCase().includes(search.toLowerCase()) || r.address.toLowerCase().includes(search.toLowerCase()));
+  if (loading || !user) return null;
 
   return (
     <main className="min-h-screen bg-white dark:bg-slate-950 pb-20 transition-colors duration-300">
@@ -207,7 +216,7 @@ export default function Feed() {
                   <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {ride.address}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {new Date(ride.start_time).toLocaleString('pt-BR')}
+                  <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {new Date(ride.startTime).toLocaleString('pt-BR')}
                 </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-2">
                   <Award className="w-4 h-4 text-blue-600 dark:text-blue-400" /> {ride.distance}km planejados
@@ -221,7 +230,7 @@ export default function Feed() {
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 dark:text-white/30 font-bold uppercase leading-tight">Organizador</p>
-                    <p className="text-xs font-bold text-slate-700 dark:text-white/80 leading-tight">{ride.creator_name}</p>
+                    <p className="text-xs font-bold text-slate-700 dark:text-white/80 leading-tight">{ride.creatorName}</p>
                   </div>
                 </div>
                 <button 

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { Workout } from '@/lib/types';
 import { 
   collection, 
   query, 
@@ -29,21 +30,21 @@ import {
   WifiOff,
   CloudOff
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { WorkoutItem } from '@/components/WorkoutItem';
 
 export default function HistoryPage() {
   const { user, loading, isOffline } = useFirebase();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [workouts, setWorkouts] = useState<any[]>([]);
+  const [workouts, setWorkouts] = useState<Workout[]>([]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
-  const [deletingWorkout, setDeletingWorkout] = useState<any | null>(null);
+  const [deletingWorkout, setDeletingWorkout] = useState<Workout | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -55,7 +56,7 @@ export default function HistoryPage() {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setWorkouts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      setWorkouts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Workout)));
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'workouts');
     });
@@ -136,12 +137,14 @@ export default function HistoryPage() {
       <AnimatePresence>
         {deletingWorkout && (
           <motion.div 
+            key="delete-workout-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-6"
           >
             <motion.div 
+              key="delete-workout-modal"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}

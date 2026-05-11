@@ -11,10 +11,11 @@ import {
   Zap,
   Navigation
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { useRouter } from 'next/navigation';
 import { useFirebase } from '@/components/FirebaseProvider';
-import { db } from '@/lib/firebase';
+import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { UserProfile } from '@/lib/types';
 import { doc, getDoc } from 'firebase/firestore';
 
 import Image from 'next/image';
@@ -27,15 +28,19 @@ export default function Dashboard() {
   useEffect(() => {
     if (user) {
       const userRef = doc(db, 'users', user.uid);
-      getDoc(userRef).then(snap => {
-        if (snap.exists()) {
-          const data = snap.data();
-          setStats({
-            totalDistance: data.stats?.totalDistance || 0,
-            points: data.stats?.points || 0
-          });
-        }
-      });
+      getDoc(userRef)
+        .then(snap => {
+          if (snap.exists()) {
+            const data = snap.data() as UserProfile;
+            setStats({
+              totalDistance: data.stats?.totalDistance || 0,
+              points: data.stats?.points || 0
+            });
+          }
+        })
+        .catch(err => {
+          handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
+        });
     }
   }, [user]);
 
@@ -67,6 +72,7 @@ export default function Dashboard() {
                 alt="User" 
                 fill
                 className="object-cover" 
+                referrerPolicy="no-referrer"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-white font-bold text-xs">

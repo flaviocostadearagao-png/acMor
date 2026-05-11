@@ -12,13 +12,15 @@ import {
   Activity,
   Map as MapIcon
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { WorkoutMap } from './WorkoutMap';
 
+import { Workout } from '@/lib/types';
+
 interface WorkoutItemProps {
-  workout: any;
+  workout: Workout;
   onUpdate: (workoutId: string, newName: string) => Promise<void>;
-  onDelete: (workout: any) => void;
+  onDelete: (workout: Workout) => void;
   dark?: boolean;
 }
 
@@ -67,7 +69,9 @@ export function WorkoutItem({ workout, onUpdate, onDelete }: WorkoutItemProps) {
             )}
             <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-white/40 font-medium">
               <Clock className="w-3 h-3" />
-              {workout.createdAt?.toDate ? workout.createdAt.toDate().toLocaleDateString('pt-BR') : 'Recente'}
+              {workout.createdAt instanceof Date 
+                ? workout.createdAt.toLocaleDateString('pt-BR') 
+                : (workout.createdAt as any)?.toDate?.()?.toLocaleDateString('pt-BR') || 'Recente'}
             </div>
           </div>
         </div>
@@ -98,6 +102,7 @@ export function WorkoutItem({ workout, onUpdate, onDelete }: WorkoutItemProps) {
             <AnimatePresence>
                 {showMap && (
                     <motion.div 
+                        key="workout-map-container"
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 160, opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
@@ -119,6 +124,7 @@ export function WorkoutItem({ workout, onUpdate, onDelete }: WorkoutItemProps) {
           <>
             <div className="fixed inset-0 z-20" onClick={() => setShowOptions(false)} />
             <motion.div 
+              key="options-backdrop"
               initial={{ opacity: 0, scale: 0.95, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -10 }}

@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useFirebase } from '@/components/FirebaseProvider';
 import { useRouter } from 'next/navigation';
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
+import { calculateDistance, speak } from '@/lib/utils';
+import { Workout, PathPoint, UserProfile } from '@/lib/types';
 import { 
   collection, 
   addDoc, 
@@ -11,7 +13,12 @@ import {
   doc, 
   updateDoc, 
   increment,
-  getDoc 
+  getDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs
 } from 'firebase/firestore';
 import { 
   Play, 
@@ -32,7 +39,7 @@ import {
   CloudOff,
   CloudLightning
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import { WorkoutMap } from '@/components/WorkoutMap';
 
 interface WorkoutSummary {
@@ -52,28 +59,48 @@ export default function TrackingPage() {
   const [distance, setDistance] = useState(0);
   const [avgSpeed, setAvgSpeed] = useState(0);
   const [isAutoPaused, setIsAutoPaused] = useState(false);
-  const [path, setPath] = useState<{lat: number, lng: number, timestamp: number}[]>([]);
+  const [path, setPath] = useState<PathPoint[]>([]);
+  const [recentPath, setRecentPath] = useState<{lat: number, lng: number}[] | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [summary, setSummary] = useState<WorkoutSummary | null>(null);
+  const [summary, setSummary] = useState<Partial<Workout> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const watchIdRef = useRef<number | null>(null);
 
-  const speak = (msg: string) => {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(msg);
-        utterance.lang = 'pt-BR';
-        utterance.rate = 1.1;
-        window.speechSynthesis.speak(utterance);
-    }
-  };
-
   useEffect(() => {
     setMounted(true);
-  }, []);
+    
+    // Fetch recent workout for ghost track
+    const fetchRecentWorkout = async () => {
+      if (!user) return;
+      try {
+        const q = query(
+          collection(db, 'workouts'),
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const lastWorkout = querySnapshot.docs[0].data();
+          const createdAt = lastWorkout.createdAt?.toDate ? lastWorkout.createdAt.toDate() : new Date(lastWorkout.createdAt);
+          const now = new Date();
+          const diffMs = now.getTime() - createdAt.getTime();
+          
+          // Show for 1 day (86,400,000 ms)
+          if (diffMs < 86400000 && lastWorkout.path) {
+            setRecentPath(lastWorkout.path.map((p: PathPoint) => ({ lat: p.lat, lng: p.lng })));
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching recent workout for ghost track:", err);
+      }
+    };
+
+    fetchRecentWorkout();
+  }, [user]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -140,22 +167,10 @@ export default function TrackingPage() {
 
   useEffect(() => {
     if (duration > 0) {
-      const speedKmh = (distance / (duration / 3600));
+      const speedKmh = distance / (duration / 3600);
       setAvgSpeed(parseFloat(speedKmh.toFixed(1)));
     }
   }, [duration, distance]);
-
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
 
   const handleStart = () => {
     setIsRecording(true);
@@ -174,7 +189,7 @@ export default function TrackingPage() {
       duration,
       avgSpeed,
       path,
-      date: new Date().toLocaleDateString('pt-BR')
+      createdAt: new Date()
     });
     speak("Treino concluído. Parabéns!");
   };
@@ -201,34 +216,34 @@ export default function TrackingPage() {
         
         // Fetch current stats to check records
         const userSnap = await getDoc(userRef);
-        const userData = userSnap.data();
+        const userData = userSnap.data() as UserProfile | undefined;
         
         const updates: any = {
-           'stats.totalDistance': increment(summary.distance),
+           'stats.totalDistance': increment(summary.distance || 0),
            'stats.totalRides': increment(1),
-           'stats.points': increment(Math.floor(summary.distance * 10)),
+           'stats.points': increment(Math.floor((summary.distance || 0) * 10)),
         };
 
         // Handle monthly stats increment
         if (userData?.stats?.lastMonthUpdated === currentMonthKey) {
-            updates['stats.monthlyDistance'] = increment(summary.distance);
+            updates['stats.monthlyDistance'] = increment(summary.distance || 0);
         } else {
-            updates['stats.monthlyDistance'] = summary.distance;
+            updates['stats.monthlyDistance'] = summary.distance || 0;
             updates['stats.lastMonthUpdated'] = currentMonthKey;
         }
 
         // Update records
-        if (!userData?.records?.longestRide || summary.distance > userData.records.longestRide) {
-          updates['records.longestRide'] = summary.distance;
+        if (!userData?.records?.longestRide || (summary.distance || 0) > userData.records.longestRide) {
+          updates['records.longestRide'] = summary.distance || 0;
         }
         
         // Save workout
         await addDoc(collection(db, 'workouts'), {
           userId: user.uid,
-          distance: summary.distance,
-          duration: summary.duration,
-          avgSpeed: summary.avgSpeed,
-          path: summary.path,
+          distance: summary.distance || 0,
+          duration: summary.duration || 0,
+          avgSpeed: summary.avgSpeed || 0,
+          path: summary.path || [],
           createdAt: serverTimestamp()
         });
         
@@ -255,8 +270,14 @@ export default function TrackingPage() {
 
   return (
     <main className="min-h-screen bg-white dark:bg-slate-900 text-slate-900 dark:text-white pb-32 overflow-hidden flex flex-col transition-colors duration-300">
-      <header className="p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center">
+      <header className="p-6 flex items-center justify-between">
+        <button 
+          onClick={() => router.push('/')}
+          className="w-10 h-10 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-400 dark:text-white"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div className="flex flex-col items-center flex-1">
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 ${mounted && isOffline ? 'bg-orange-500' : 'bg-green-500'} rounded-full animate-pulse`} />
             <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-white/40">
@@ -264,6 +285,7 @@ export default function TrackingPage() {
             </span>
           </div>
         </div>
+        <div className="w-10" />
       </header>
 
       <div className="flex-1 flex flex-col items-center justify-center gap-12 px-6">
@@ -295,7 +317,7 @@ export default function TrackingPage() {
         </div>
 
         <div className="w-full aspect-square max-w-sm bg-slate-50 dark:bg-slate-800/50 rounded-[2.5rem] border border-slate-100 dark:border-white/5 overflow-hidden relative group shadow-sm transition-colors">
-          <WorkoutMap currentLocation={currentLocation} path={path} />
+          <WorkoutMap currentLocation={currentLocation} path={path} recentPath={recentPath || undefined} />
           
           <div className="absolute top-4 left-4 z-10">
             <div className="w-10 h-10 bg-white/80 dark:bg-black/60 backdrop-blur-md rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/10 shadow-sm">
@@ -352,6 +374,7 @@ export default function TrackingPage() {
       <AnimatePresence>
         {summary && (
           <motion.div 
+            key="workout-summary-modal"
             initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 100 }}
@@ -372,12 +395,12 @@ export default function TrackingPage() {
                 <div className="grid grid-cols-2 gap-4">
                    <div className="p-4 bg-white dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
                       <div className="text-blue-600 dark:text-blue-400 mb-2 flex justify-center"><Activity className="w-5 h-5" /></div>
-                      <div className="text-lg font-display font-bold text-slate-900 dark:text-white">{summary.distance.toFixed(1)}</div>
+                      <div className="text-lg font-display font-bold text-slate-900 dark:text-white">{(summary.distance || 0).toFixed(1)}</div>
                       <div className="text-[8px] font-black text-slate-400 dark:text-white/30 uppercase">KM</div>
                    </div>
                    <div className="p-4 bg-white dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 shadow-sm">
                       <div className="text-green-600 dark:text-green-400 mb-2 flex justify-center"><TrendingUp className="w-5 h-5" /></div>
-                      <div className="text-lg font-display font-medium text-slate-900 dark:text-white">{summary.avgSpeed}</div>
+                      <div className="text-lg font-display font-medium text-slate-900 dark:text-white">{summary.avgSpeed || 0}</div>
                       <div className="text-[8px] font-black text-slate-400 dark:text-white/30 uppercase">KM/H</div>
                    </div>
                 </div>
@@ -388,14 +411,14 @@ export default function TrackingPage() {
                   <div className="w-10 h-10 bg-orange-500/20 rounded-2xl flex items-center justify-center mb-4">
                     <Flame className="w-5 h-5 text-orange-600 dark:text-orange-500" />
                   </div>
-                  <span className="text-xl font-display font-bold text-slate-900 dark:text-white">{(summary.distance * 40).toFixed(0)}</span>
+                  <span className="text-xl font-display font-bold text-slate-900 dark:text-white">{((summary.distance || 0) * 40).toFixed(0)}</span>
                   <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase mt-1">Calorias Estimadas</span>
                 </div>
                 <div className="bg-slate-50 dark:bg-slate-900 rounded-[2rem] p-6 border border-slate-100 dark:border-white/5 flex flex-col items-center shadow-sm">
                   <div className="w-10 h-10 bg-yellow-500/20 rounded-2xl flex items-center justify-center mb-4">
                     <Zap className="w-5 h-5 text-yellow-600 dark:text-yellow-500" />
                   </div>
-                  <span className="text-xl font-display font-bold text-slate-900 dark:text-white">+{Math.floor(summary.distance * 10)}</span>
+                  <span className="text-xl font-display font-bold text-slate-900 dark:text-white">+{Math.floor((summary.distance || 0) * 10)}</span>
                   <span className="text-[9px] font-black text-slate-400 dark:text-white/30 uppercase mt-1">Pontos PedalMatch</span>
                 </div>
               </div>
