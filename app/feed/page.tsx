@@ -34,7 +34,7 @@ import {
   WifiOff,
   CloudOff
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'motion/react';
 import Image from 'next/image';
 
 export default function Feed() {
@@ -251,12 +251,14 @@ export default function Feed() {
       <AnimatePresence>
         {showModal && (
           <motion.div 
+            key="create-ride-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-4"
           >
             <motion.div 
+              key="create-ride-modal"
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}

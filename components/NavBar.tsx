@@ -12,7 +12,7 @@ import {
   Users
 } from 'lucide-react';
 import { useFirebase } from './FirebaseProvider';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { DarkModeToggle } from './DarkModeToggle';
 
 export function NavBar() {
