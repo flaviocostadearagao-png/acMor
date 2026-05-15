@@ -1,20 +1,58 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# PedalMatch
 
-# Run and deploy your AI Studio app
+App de rastreamento e social para ciclistas com modo offline. Participe de pedais, acompanhe seu progresso e suba no ranking!
 
-This contains everything you need to run your app locally.
+## Funcionalidades
 
-View your app in AI Studio: https://ai.studio/apps/ea717345-2e7b-462b-bb3e-875cc113f997
+- **Rastreamento em Tempo Real**: Monitore distância, tempo e velocidade média.
+- **Modo Offline**: Grave seus treinos mesmo sem conexão e sincronize depois.
+- **Feed de Pedais**: Descubra e junte-se a grupos de ciclistas próximos a você.
+- **Ranking**: Veja sua posição no ranking global baseado na distância percorrida.
+- **Perfil Customizável**: Gerencie suas estatísticas e recordes pessoais.
 
-## Run Locally
+## Tecnologias Utilizadas
 
-**Prerequisites:**  Node.js
+- **Next.js 15** (App Router)
+- **Firebase** (Firestore & Auth)
+- **Google Maps API** (Visualização de rotas)
+- **Tailwind CSS** (Estilização)
+- **Motion** (Animações)
+- **Lucide React** (Ícones)
 
+## Como Rodar Localmente
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. **Clone o repositório**:
+   ```bash
+   git clone https://github.com/seu-usuario/pedalmatch.git
+   cd pedalmatch
+   ```
+
+2. **Instale as dependências**:
+   ```bash
+   npm install
+   ```
+
+3. **Configure as variáveis de ambiente**:
+   Crie um arquivo `.env.local` na raiz e adicione sua chave do Google Maps:
+   ```env
+   NEXT_PUBLIC_GOOGLE_MAPS_PLATFORM_KEY=sua_chave_aqui
+   ```
+
+4. **Firebase Config**:
+   Certifique-se de que o arquivo `firebase-applet-config.json` contém as credenciais do seu projeto Firebase.
+
+5. **Inicie o servidor de desenvolvimento**:
+   ```bash
+   npm run dev
+   ```
+
+6. **Acesse no navegador**:
+   [http://localhost:3000](http://localhost:3000)
+
+## Deploy
+
+Este projeto está pronto para ser implantado na **Vercel** ou qualquer plataforma de hospedagem que suporte Next.js. Lembre-se de configurar as variáveis de ambiente no painel da plataforma.
+
+---
+
+Desenvolvido para entusiastas do ciclismo! 🚲✨

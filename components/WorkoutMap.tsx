@@ -66,7 +66,6 @@ export function WorkoutMap({ currentLocation, path, recentPath }: WorkoutMapProp
             defaultZoom={15}
             mapId="DEMO_MAP_ID"
             style={{ width: '100%', height: '100%' }}
-            internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
             disableDefaultUI={false}
             mapTypeControl={true}
             zoomControl={true}
