@@ -17,17 +17,21 @@ async function initFirebase() {
             loadGoogleMaps(mapsKey);
         }
 
-        auth.onAuthStateChanged(user => {
+        auth.onAuthStateChanged(async user => {
             if (user) {
-                document.getElementById('view-login').classList.add('hidden');
-                document.getElementById('main-ui').classList.remove('hidden');
-                document.getElementById('user-photo').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + user.displayName;
-                showTab('feed');
-                loadFeed();
+                if (user.isAnonymous) {
+                    console.log("Logado anonimamente");
+                } else {
+                    document.getElementById('btn-login-header').innerHTML = `<img src="${user.photoURL}" class="w-full h-full rounded-full object-cover">`;
+                }
                 loadRanking();
             } else {
-                document.getElementById('view-login').classList.remove('hidden');
-                document.getElementById('main-ui').classList.add('hidden');
+                // Login automático anônimo para iniciar o site imediatamente
+                try {
+                    await auth.signInAnonymously();
+                } catch (error) {
+                    console.error("Erro no login anônimo:", error);
+                }
             }
         });
     } catch (error) {
@@ -50,30 +54,12 @@ function loadGoogleMaps(key) {
     document.head.appendChild(script);
 }
 
-// Login
-document.getElementById('btn-login').addEventListener('click', () => {
+// Login via header (opcional para quem quer salvar os dados permanentemente)
+document.getElementById('btn-login-header').addEventListener('click', () => {
+    if (auth.currentUser && !auth.currentUser.isAnonymous) return;
     const provider = new firebase.auth.GoogleAuthProvider();
     auth.signInWithPopup(provider);
 });
-
-// Mock Feed
-function loadFeed() {
-    const list = document.getElementById('pedals-list');
-    const mockPedals = [
-        { name: 'Pedal de Sexta', creator: 'João Silva', dist: '30km', time: '19:00' },
-        { name: 'Treino da Madrugada', creator: 'Maria Costa', dist: '50km', time: '05:30' }
-    ];
-    
-    list.innerHTML = mockPedals.map(p => `
-        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-            <div>
-                <h3 class="font-bold">${p.name}</h3>
-                <p class="text-sm text-slate-500">${p.creator} • ${p.dist}</p>
-            </div>
-            <span class="text-blue-600 font-semibold">${p.time}</span>
-        </div>
-    `).join('');
-}
 
 // Tracking Logic
 let isTracking = false;

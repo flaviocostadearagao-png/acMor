@@ -21,21 +21,8 @@
 </head>
 <body class="bg-slate-50 text-slate-900">
     <div id="app" class="max-w-md mx-auto min-h-screen bg-white shadow-xl relative pb-20">
-        <!-- Auth View -->
-        <div id="view-login" class="tab-content active p-8 flex flex-col items-center justify-center min-h-screen text-center">
-            <div class="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mb-6 shadow-lg shadow-blue-200">
-                <i data-lucide="bike" class="text-white w-10 h-10"></i>
-            </div>
-            <h1 class="text-3xl font-bold mb-2">PedalMatch</h1>
-            <p class="text-slate-500 mb-8">Conectando ciclistas em todo o Brasil.</p>
-            <button id="btn-login" class="w-full bg-slate-900 text-white py-4 rounded-2xl font-semibold flex items-center justify-center gap-3 hover:bg-slate-800 transition-all">
-                <i data-lucide="log-in" class="w-5 h-5"></i>
-                Entrar com Google
-            </button>
-        </div>
-
         <!-- Main App Views -->
-        <div id="main-ui" class="hidden">
+        <div id="main-ui">
             <!-- Header -->
             <header class="p-6 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
                 <div class="flex items-center gap-3">
@@ -44,21 +31,13 @@
                     </div>
                     <span class="font-bold text-xl">PedalMatch</span>
                 </div>
-                <button id="btn-profile" class="w-10 h-10 rounded-full bg-slate-100 overflow-hidden border-2 border-white shadow-sm">
-                    <img id="user-photo" src="" alt="User" class="w-full h-full object-cover">
+                <button id="btn-login-header" class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center border-2 border-white shadow-sm">
+                    <i data-lucide="user" class="text-slate-400 w-5 h-5"></i>
                 </button>
             </header>
 
-            <!-- Dashboard / Feed -->
-            <div id="view-feed" class="tab-content p-6">
-                <h2 class="text-2xl font-bold mb-6">Explore Pedais</h2>
-                <div id="pedals-list" class="space-y-4">
-                    <!-- Pedals will be injected here -->
-                </div>
-            </div>
-
-            <!-- Tracking -->
-            <div id="view-tracking" class="tab-content p-6">
+            <!-- Tracking (Default) -->
+            <div id="view-tracking" class="tab-content active p-6">
                 <div class="bg-slate-900 rounded-3xl p-8 text-white mb-6 text-center">
                     <div class="text-6xl font-bold mb-2" id="timer">00:00</div>
                     <div class="grid grid-cols-2 gap-4 mt-8">
@@ -95,13 +74,10 @@
 
             <!-- Bottom Navigation -->
             <nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white/90 backdrop-blur-lg border-t border-slate-100 p-3 flex justify-around">
-                <button onclick="showTab('feed')" class="nav-btn p-3 text-slate-400 hover:text-blue-600 transition-colors" data-tab="feed">
-                    <i data-lucide="home"></i>
-                </button>
-                <button onclick="showTab('tracking')" class="nav-btn p-4 bg-blue-600 text-white rounded-2xl -mt-8 shadow-lg shadow-blue-200" data-tab="tracking">
+                <button onclick="showTab('tracking')" class="nav-btn p-4 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200" data-tab="tracking">
                     <i data-lucide="play"></i>
                 </button>
-                <button onclick="showTab('ranking')" class="nav-btn p-3 text-slate-400 hover:text-blue-600 transition-colors" data-tab="ranking">
+                <button onclick="showTab('ranking')" class="nav-btn p-3 text-slate-600 hover:text-blue-600 transition-colors" data-tab="ranking">
                     <i data-lucide="trophy"></i>
                 </button>
             </nav>
