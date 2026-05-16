@@ -1,22 +1,22 @@
 import type { NextConfig } from "next";
 
 const isGithubActions = process.env.GITHUB_ACTIONS === 'true';
-let assetPrefix = '';
 let basePath = '';
 
 if (isGithubActions) {
   const repo = process.env.GITHUB_REPOSITORY?.replace(/.*?\//, '');
-  assetPrefix = `/${repo}/`;
-  basePath = `/${repo}`;
+  // Se o repositório for o site principal (username.github.io), o basePath deve ser vazio
+  if (repo && !repo.endsWith('.github.io')) {
+    basePath = `/${repo}`;
+  }
 }
 
 const nextConfig: NextConfig = {
   output: 'export',
-  assetPrefix: assetPrefix,
   basePath: basePath,
   trailingSlash: true,
   env: {
-    GOOGLE_MAPS_PLATFORM_KEY: process.env.GOOGLE_MAPS_PLATFORM_KEY || '',
+    NEXT_PUBLIC_GOOGLE_MAPS_PLATFORM_KEY: process.env.NEXT_PUBLIC_GOOGLE_MAPS_PLATFORM_KEY || process.env.GOOGLE_MAPS_PLATFORM_KEY || '',
   },
   images: {
     unoptimized: true,
