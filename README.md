@@ -1,72 +1,68 @@
-# PedalMatch
+# PedalMatch 🚲
 
-App de rastreamento e social para ciclistas com modo offline. Participe de pedais, acompanhe seu progresso e suba no ranking!
+App de rastreamento e rede social para ciclistas com suporte a modo offline. Participe de pedais, acompanhe seu progresso e suba no ranking!
 
-## Funcionalidades
+O projeto foi construído utilizando uma arquitetura moderna que compila para **HTML estático, CSS e JavaScript**, garantindo alta performance e compatibilidade total com o **GitHub Pages**.
 
-- **Rastreamento em Tempo Real**: Monitore distância, tempo e velocidade média.
-- **Modo Offline**: Grave seus treinos mesmo sem conexão e sincronize depois.
-- **Feed de Pedais**: Descubra e junte-se a grupos de ciclistas próximos a você.
-- **Ranking**: Veja sua posição no ranking global baseado na distância percorrida.
-- **Perfil Customizável**: Gerencie suas estatísticas e recordes pessoais.
+## 🏗️ Estrutura do Projeto (Arquitetura)
 
-## Tecnologias Utilizadas
+O PedalMatch segue uma estrutura modular baseada em componentes, facilitando a manutenção e o deploy estático:
 
-- **Next.js 15** (App Router)
-- **Firebase** (Firestore & Auth)
-- **Google Maps API** (Visualização de rotas)
-- **Tailwind CSS** (Estilização)
-- **Motion** (Animações)
-- **Lucide React** (Ícones)
+-   **HTML (Estrutura)**: Definida através de componentes React (JSX) dentro do diretório `/app`. Cada página é convertida em um arquivo `.html` durante o build.
+-   **CSS (Estilização)**: Utiliza **Tailwind CSS**, permitindo um design responsivo e moderno sem arquivos CSS externos pesados. O CSS final é otimizado e incluído automaticamente.
+-   **JavaScript/TypeScript (Lógica)**: Toda a lógica de rastreamento, integração com Firebase e mapas é escrita em TypeScript (JavaScript com tipagem), garantindo robustez.
+-   **Static Export**: Configurado para gerar uma pasta `out/` contendo apenas arquivos estáticos (HTML/CSS/JS), ideal para hospedagem sem servidor (GitHub Pages).
 
-## Como Rodar Localmente
+## ✨ Funcionalidades Principais
 
-1. **Clone o repositório**:
-   ```bash
-   git clone https://github.com/seu-usuario/pedalmatch.git
-   cd pedalmatch
-   ```
+-   **Rastreamento em Tempo Real**: Monitore distância, tempo e velocidade média via Geolocalização.
+-   **Modo Offline**: Grave seus treinos localmente e sincronize com o Firebase assim que recuperar a conexão.
+-   **Feed Social**: Descubra e participe de grupos de pedal próximos.
+-   **Ranking Global**: Compita com outros ciclistas baseado na distância total percorrida.
+-   **Dashboard de Perfil**: Estatísticas detalhadas e recordes pessoais.
 
-2. **Instale as dependências**:
-   ```bash
-   npm install
-   ```
+## 🛠️ Tecnologias
 
-3. **Configure as variáveis de ambiente**:
-   Crie um arquivo `.env.local` na raiz e adicione sua chave do Google Maps:
-   ```env
-   NEXT_PUBLIC_GOOGLE_MAPS_PLATFORM_KEY=sua_chave_aqui
-   ```
+-   **Framework**: [Next.js 15](https://nextjs.org/) (Configurado com `output: export`)
+-   **Banco de Dados & Auth**: [Firebase](https://firebase.google.com/) (Firestore e Google Authentication)
+-   **Mapas**: [Google Maps Platform](https://mapsplatform.google.com/)
+-   **Estilos**: [Tailwind CSS](https://tailwindcss.com/)
+-   **Animações**: [Motion](https://motion.dev/)
 
-4. **Firebase Config**:
-   Certifique-se de que o arquivo `firebase-applet-config.json` contém as credenciais do seu projeto Firebase.
+## 🚀 Como Rodar Localmente
 
-5. **Inicie o servidor de desenvolvimento**:
-   ```bash
-   npm run dev
-   ```
+1.  **Clone o repositório**:
+    ```bash
+    git clone https://github.com/seu-usuario/pedalmatch.git
+    cd pedalmatch
+    ```
 
-6. **Acesse no navegador**:
-   [http://localhost:3000](http://localhost:3000)
+2.  **Instale as dependências**:
+    ```bash
+    npm install
+    ```
 
-## Deploy
+3.  **Configuração de API**:
+    Crie um arquivo `.env.local` e adicione sua chave:
+    ```env
+    NEXT_PUBLIC_GOOGLE_MAPS_PLATFORM_KEY=sua_chave_aqui
+    ```
 
-Este projeto está pronto para ser implantado na **Vercel** ou qualquer plataforma de hospedagem que suporte Next.js. Lembre-se de configurar as variáveis de ambiente no painel da plataforma.
+4.  **Inicie o desenvolvimento**:
+    ```bash
+    npm run dev
+    ```
 
-## Deploy no GitHub Pages
+## 🌐 Deploy no GitHub Pages
 
-Este projeto está configurado para deploy automático no GitHub Pages via GitHub Actions.
+Este projeto possui um workflow do GitHub Actions em `.github/workflows/nextjs.yml` que automatiza o deploy.
 
-1.  **Habilite o GitHub Actions**: Vá em `Settings > Actions > General` no seu repositório e certifique-se de que as Actions estão permitidas.
-2.  **Configure o Pages**: Vá em `Settings > Pages`. Em "Build and deployment", selecione **"GitHub Actions"** como fonte.
-3.  **Push para o GitHub**: Ao fazer push para a branch `main`, o workflow em `.github/workflows/nextjs.yml` será acionado automaticamente.
+1.  No GitHub, vá em **Settings > Pages**.
+2.  Em "Build and deployment", selecione **"GitHub Actions"**.
+3.  O site será publicado automaticamente ao fazer push para a branch `main`.
 
-### Importante: Configuração do Firebase
-Para que o Login funcione no domínio do GitHub Pages:
-1. Vá ao [Console do Firebase](https://console.firebase.google.com/).
-2. Selecione seu projeto.
-3. Vá em `Authentication > Settings > Authorized domains`.
-4. Adicione o seu domínio do GitHub Pages (ex: `seu-usuario.github.io`).
+### Configuração Crítica do Firebase
+Adicione o seu domínio do GitHub Pages (`seu-usuario.github.io`) na seção **Authorized Domains** dentro do Console do Firebase (Authentication > Settings).
 
 ---
 

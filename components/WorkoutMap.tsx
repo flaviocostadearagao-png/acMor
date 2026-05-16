@@ -64,7 +64,6 @@ export function WorkoutMap({ currentLocation, path, recentPath }: WorkoutMapProp
         <Map
             defaultCenter={currentLocation || { lat: -23.5505, lng: -46.6333 }}
             defaultZoom={15}
-            mapId="DEMO_MAP_ID"
             style={{ width: '100%', height: '100%' }}
             disableDefaultUI={false}
             mapTypeControl={true}
