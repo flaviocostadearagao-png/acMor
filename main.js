@@ -1,14 +1,21 @@
-// Configuração do Firebase (Será preenchida dinamicamente no carregamento)
-let db, auth;
+// Configuração do Firebase e Google Maps
+let db, auth, map;
 
 async function initFirebase() {
     try {
         const response = await fetch('firebase-applet-config.json');
         const config = await response.json();
         
+        // Inicializar Firebase
         firebase.initializeApp(config);
         db = firebase.firestore();
         auth = firebase.auth();
+
+        // Carregar Google Maps se a chave estiver presente
+        const mapsKey = config.googleMapsKey || "";
+        if (mapsKey) {
+            loadGoogleMaps(mapsKey);
+        }
 
         auth.onAuthStateChanged(user => {
             if (user) {
@@ -26,6 +33,21 @@ async function initFirebase() {
     } catch (error) {
         console.error("Erro ao inicializar Firebase:", error);
     }
+}
+
+function loadGoogleMaps(key) {
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&callback=initMap`;
+    script.async = true;
+    script.defer = true;
+    window.initMap = function() {
+        map = new google.maps.Map(document.getElementById('map'), {
+            center: { lat: -23.5505, lng: -46.6333 },
+            zoom: 15,
+            disableDefaultUI: true
+        });
+    };
+    document.head.appendChild(script);
 }
 
 // Login
