@@ -53,6 +53,21 @@ App de rastreamento e social para ciclistas com modo offline. Participe de pedai
 
 Este projeto está pronto para ser implantado na **Vercel** ou qualquer plataforma de hospedagem que suporte Next.js. Lembre-se de configurar as variáveis de ambiente no painel da plataforma.
 
+## Deploy no GitHub Pages
+
+Este projeto está configurado para deploy automático no GitHub Pages via GitHub Actions.
+
+1.  **Habilite o GitHub Actions**: Vá em `Settings > Actions > General` no seu repositório e certifique-se de que as Actions estão permitidas.
+2.  **Configure o Pages**: Vá em `Settings > Pages`. Em "Build and deployment", selecione **"GitHub Actions"** como fonte.
+3.  **Push para o GitHub**: Ao fazer push para a branch `main`, o workflow em `.github/workflows/nextjs.yml` será acionado automaticamente.
+
+### Importante: Configuração do Firebase
+Para que o Login funcione no domínio do GitHub Pages:
+1. Vá ao [Console do Firebase](https://console.firebase.google.com/).
+2. Selecione seu projeto.
+3. Vá em `Authentication > Settings > Authorized domains`.
+4. Adicione o seu domínio do GitHub Pages (ex: `seu-usuario.github.io`).
+
 ---
 
 Desenvolvido para entusiastas do ciclismo! 🚲✨
